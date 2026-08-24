@@ -9,29 +9,89 @@
    ========================================================================== */
 
 /**
- * Office.onReady memastikan seluruh pustaka Office.js telah dimuat
+ * Office.onReady memastikan pustaka Office.js telah dimuat
  * dan siap berinteraksi dengan buku kerja Excel sebelum event listener didaftarkan.
  */
 Office.onReady((info) => {
     if (info.host === Office.HostType.Excel) {
         console.log("Office.js siap untuk Excel.");
 
-        // Daftarkan Event Listener untuk masing-masing tombol aksi
+        // Muat API Key dari penyimpanan lokal jika pernah disimpan
+        initSettings();
+
+        // 1. AI Formula Assistant
         document.getElementById("btn-generate-formula")?.addEventListener("click", handleGenerateFormula);
+
+        // 2. Smart Data Cleaner
         document.getElementById("btn-clean-trim")?.addEventListener("click", () => handleCleanData("trim"));
         document.getElementById("btn-clean-proper")?.addEventListener("click", () => handleCleanData("proper"));
+        document.getElementById("btn-clean-upper")?.addEventListener("click", () => handleCleanData("upper"));
+        document.getElementById("btn-clean-lower")?.addEventListener("click", () => handleCleanData("lower"));
+        document.getElementById("btn-format-rupiah")?.addEventListener("click", handleFormatRupiah);
+        document.getElementById("btn-format-date")?.addEventListener("click", handleFormatDate);
+
+        // 3. Template Generator
         document.getElementById("btn-generate-template")?.addEventListener("click", handleGenerateTemplate);
+
+        // 4. Mass Action: Split Sheets
         document.getElementById("btn-split-sheets")?.addEventListener("click", handleSplitDataToSheets);
+
+        // Pengaturan API Key (Toggle & Simpan)
+        document.getElementById("btn-toggle-settings")?.addEventListener("click", toggleSettingsCard);
+        document.getElementById("btn-save-key")?.addEventListener("click", saveApiKey);
     }
 });
 
 /* ==========================================================================
-   2. FITUR 1: AI FORMULA ASSISTANT & EXPLAINER
+   2. PENGATURAN API KEY (GEMINI AI CONFIG)
    ========================================================================== */
 
 /**
- * Mengubah instruksi bahasa alami dari textarea menjadi formula Excel,
- * kemudian memasukkannya langsung ke sel yang sedang aktif.
+ * Memuat API Key yang tersimpan di localStorage browser.
+ */
+function initSettings() {
+    const savedKey = localStorage.getItem("GEMINI_API_KEY");
+    const keyInput = document.getElementById("gemini-api-key");
+    if (savedKey && keyInput) {
+        keyInput.value = savedKey;
+    }
+}
+
+/**
+ * Menampilkan atau menyembunyikan kartu pengaturan API Key.
+ */
+function toggleSettingsCard() {
+    const card = document.getElementById("settings-card");
+    if (card) {
+        const isVisible = card.style.display === "block";
+        card.style.display = isVisible ? "none" : "block";
+    }
+}
+
+/**
+ * Menyimpan API Key ke localStorage agar tidak hilang saat add-in dimuat ulang.
+ */
+function saveApiKey() {
+    const keyInput = document.getElementById("gemini-api-key");
+    const apiKey = keyInput ? keyInput.value.trim() : "";
+    
+    if (apiKey) {
+        localStorage.setItem("GEMINI_API_KEY", apiKey);
+        showStatus("API Key berhasil disimpan!", "success");
+    } else {
+        localStorage.removeItem("GEMINI_API_KEY");
+        showStatus("API Key dihapus. Sistem menggunakan parser bawaan.", "info");
+    }
+    toggleSettingsCard();
+}
+
+/* ==========================================================================
+   3. FITUR 1: AI FORMULA ASSISTANT & EXPLAINER (GEMINI + FALLBACK)
+   ========================================================================== */
+
+/**
+ * Mengubah prompt bahasa alami menjadi formula Excel menggunakan Gemini API
+ * atau parser lokal bawaan, lalu memasukkan formula ke sel yang sedang aktif.
  */
 async function handleGenerateFormula() {
     const inputElement = document.getElementById("formula-input");
@@ -42,22 +102,32 @@ async function handleGenerateFormula() {
         return;
     }
 
+    const apiKey = localStorage.getItem("GEMINI_API_KEY");
+    showStatus("Sedang menyusun formula...", "info");
+
+    let formulaResult = "";
+
     try {
+        if (apiKey) {
+            // Gunakan integrasi Google Gemini AI jika API Key tersedia
+            formulaResult = await fetchFormulaFromGemini(userPrompt, apiKey);
+        } else {
+            // Gunakan smart parser lokal jika tanpa API Key
+            formulaResult = parseNaturalLanguageToFormula(userPrompt);
+        }
+
+        if (!formulaResult) {
+            formulaResult = parseNaturalLanguageToFormula(userPrompt);
+        }
+
+        // Tuliskan formula ke sel aktif di Excel
         await Excel.run(async (context) => {
-            // Dapatkan sel yang saat ini sedang aktif dipilih oleh pengguna
             const activeCell = context.workbook.getActiveCell();
-
-            // Konversi teks bahasa alami menjadi formula Excel (fungsi parser/mock AI)
-            const generatedFormula = parseNaturalLanguageToFormula(userPrompt);
-
-            // Masukkan formula ke dalam sel aktif
-            activeCell.formulas = [[generatedFormula]];
-            
-            // Pilih kembali sel aktif untuk memicu pembaruan tampilan
+            activeCell.formulas = [[formulaResult]];
             activeCell.select();
-
             await context.sync();
-            showStatus(`Formula berhasil dibuat: ${generatedFormula}`, "success");
+
+            showStatus(`Formula berhasil dibuat: ${formulaResult}`, "success");
         });
     } catch (error) {
         console.error("Gagal membuat formula:", error);
@@ -66,9 +136,55 @@ async function handleGenerateFormula() {
 }
 
 /**
- * Helper: Mengubah instruksi teks alami menjadi formula Excel.
- * Mendukung logika umum atau memberikan formula berbasis pola kata kunci.
- * (Dapat diintegrasikan dengan API AI seperti OpenAI / Gemini / endpoint kustom).
+ * Helper: Memanggil Google Gemini API untuk menghasilkan formula Excel murni.
+ * 
+ * @param {string} prompt - Instruksi dari pengguna
+ * @param {string} apiKey - Google Gemini API Key
+ * @returns {Promise<string>} Formula Excel murni
+ */
+async function fetchFormulaFromGemini(prompt, apiKey) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    const requestBody = {
+        contents: [
+            {
+                parts: [
+                    {
+                        text: `Kamu adalah asisten formula Microsoft Excel. Ubah instruksi bahasa alami berikut menjadi SATU formula Excel yang valid dan siap pakai.
+Aturan:
+1. Hanya balas dengan satu string formula Excel lengkap yang diawali tanda '=' (contoh: =SUM(A1:A10) atau =IF(A1>10, "Besar", "Kecil")).
+2. Jangan berikan teks pembuka, penutup, atau tanda markdown backtick.
+
+Instruksi pengguna: "${prompt}"`
+                    }
+                ]
+            }
+        ]
+    };
+
+    const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+        throw new Error(`Gemini API Error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    let text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    
+    // Bersihkan karakter markdown jika model menyertakan backticks
+    text = text.replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim();
+    if (!text.startsWith("=")) {
+        text = "=" + text;
+    }
+    return text;
+}
+
+/**
+ * Helper: Parser bawaan lokal untuk menerjemahkan kata kunci bahasa Indonesia menjadi rumus Excel.
  * 
  * @param {string} prompt - Instruksi dari pengguna
  * @returns {string} Formula Excel lengkap (diawali tanda '=')
@@ -76,8 +192,8 @@ async function handleGenerateFormula() {
 function parseNaturalLanguageToFormula(prompt) {
     const text = prompt.toLowerCase();
 
+    // 1. SUM / Penjumlahan
     if (text.includes("jumlah") || text.includes("total") || text.includes("sum")) {
-        // Deteksi rentang sel jika disebutkan (misal: "jumlahkan A1 sampai A10")
         const match = text.match(/([a-z]+[0-9]+)\s*(?:sampai|hingga|to|-|:)\s*([a-z]+[0-9]+)/i);
         if (match) {
             return `=SUM(${match[1].toUpperCase()}:${match[2].toUpperCase()})`;
@@ -85,6 +201,7 @@ function parseNaturalLanguageToFormula(prompt) {
         return "=SUM(A1:A10)";
     }
 
+    // 2. AVERAGE / Rata-rata
     if (text.includes("rata-rata") || text.includes("average") || text.includes("mean")) {
         const match = text.match(/([a-z]+[0-9]+)\s*(?:sampai|hingga|to|-|:)\s*([a-z]+[0-9]+)/i);
         if (match) {
@@ -93,10 +210,12 @@ function parseNaturalLanguageToFormula(prompt) {
         return "=AVERAGE(A1:A10)";
     }
 
+    // 3. COUNT / Menghitung Data
     if (text.includes("hitung jumlah data") || text.includes("banyak data") || text.includes("count")) {
         return "=COUNT(A1:A10)";
     }
 
+    // 4. IF / Logika Kondisional
     if (text.includes("jika") || text.includes("if")) {
         if (text.includes("lulus")) {
             return '=IF(A1>=75, "Lulus", "Tidak Lulus")';
@@ -104,6 +223,7 @@ function parseNaturalLanguageToFormula(prompt) {
         return '=IF(A1>0, "Positif", "Negatif")';
     }
 
+    // 5. VLOOKUP & XLOOKUP
     if (text.includes("vlookup") || text.includes("cari data")) {
         return '=VLOOKUP(A2, Sheet2!A:B, 2, FALSE)';
     }
@@ -112,7 +232,7 @@ function parseNaturalLanguageToFormula(prompt) {
         return '=XLOOKUP(A2, Sheet2!A:A, Sheet2!B:B, "Tidak Ditemukan")';
     }
 
-    // Default jika pengguna langsung mengetikkan formula atau teks lainnya
+    // Default jika pengguna langsung mengetikkan formula
     if (prompt.startsWith("=")) {
         return prompt;
     }
@@ -121,54 +241,61 @@ function parseNaturalLanguageToFormula(prompt) {
 }
 
 /* ==========================================================================
-   3. FITUR 2: SMART DATA CLEANER (1-CLICK CLEANER)
+   4. FITUR 2: SMART DATA CLEANER (1-CLICK CLEANER)
    ========================================================================== */
 
 /**
- * Membersihkan data pada rentang sel yang sedang diblok oleh pengguna.
- * Pilihan mode: 'trim' (hapus spasi berlebih) atau 'proper' (kapitalisasi tiap kata).
+ * Membersihkan data teks pada rentang sel yang dipilih.
+ * Mendukung mode: 'trim', 'proper', 'upper', 'lower'.
  * 
- * @param {'trim' | 'proper'} mode - Jenis pembersihan data
+ * @param {'trim' | 'proper' | 'upper' | 'lower'} mode - Jenis pembersihan data
  */
 async function handleCleanData(mode) {
     try {
         await Excel.run(async (context) => {
-            // Dapatkan rentang sel yang sedang diblok pengguna
             const selectedRange = context.workbook.getSelectedRange();
-
-            // Muat nilai matriks 2D dari rentang sel tersebut
             selectedRange.load("values");
             await context.sync();
 
             const originalValues = selectedRange.values;
             let modifiedCount = 0;
 
-            // Proses iterasi array 2D untuk membersihkan setiap sel
             const cleanedValues = originalValues.map((row) =>
                 row.map((cellValue) => {
                     if (typeof cellValue === "string") {
                         if (mode === "trim") {
-                            // Hapus spasi di awal/akhir dan rapikan spasi ganda di dalam kalimat
                             const trimmed = cellValue.trim().replace(/\s+/g, " ");
                             if (trimmed !== cellValue) modifiedCount++;
                             return trimmed;
                         } else if (mode === "proper") {
-                            // Ubah huruf pertama setiap kata menjadi huruf kapital
                             const proper = toProperCase(cellValue);
                             if (proper !== cellValue) modifiedCount++;
                             return proper;
+                        } else if (mode === "upper") {
+                            const upper = cellValue.toUpperCase();
+                            if (upper !== cellValue) modifiedCount++;
+                            return upper;
+                        } else if (mode === "lower") {
+                            const lower = cellValue.toLowerCase();
+                            if (lower !== cellValue) modifiedCount++;
+                            return lower;
                         }
                     }
                     return cellValue;
                 })
             );
 
-            // Tulis kembali data array yang sudah dibersihkan ke Excel
             selectedRange.values = cleanedValues;
             await context.sync();
 
-            const actionLabel = mode === "trim" ? "Trim (Hapus Spasi Ganda)" : "Proper Case";
-            showStatus(`Berhasil menjalankan ${actionLabel}! ${modifiedCount} sel disesuaikan.`, "success");
+            const labelMap = {
+                trim: "Trim Spasi Ganda",
+                proper: "Proper Case",
+                upper: "UPPERCASE",
+                lower: "lowercase"
+            };
+
+            showStatus(`Berhasil menjalankan ${labelMap[mode]}! ${modifiedCount} sel disesuaikan.`, "success");
         });
     } catch (error) {
         console.error(`Gagal membersihkan data (${mode}):`, error);
@@ -177,11 +304,45 @@ async function handleCleanData(mode) {
 }
 
 /**
+ * Format sel angka menjadi format mata uang Rupiah Indonesia (Rp #,##0).
+ */
+async function handleFormatRupiah() {
+    try {
+        await Excel.run(async (context) => {
+            const selectedRange = context.workbook.getSelectedRange();
+            // Terapkan format angka akuntansi Rupiah standar Excel
+            selectedRange.numberFormat = [["_(\"Rp\"* #,##0_);_(\"Rp\"* (#,##0);_(\"Rp\"* \"-\"_);_(@_)"]];
+            await context.sync();
+            showStatus("Format Mata Uang Rupiah berhasil diterapkan!", "success");
+        });
+    } catch (error) {
+        console.error("Gagal menerapkan format Rupiah:", error);
+        showStatus(`Terjadi kesalahan: ${error.message}`, "danger");
+    }
+}
+
+/**
+ * Format sel tanggal menjadi format standar DD/MM/YYYY.
+ */
+async function handleFormatDate() {
+    try {
+        await Excel.run(async (context) => {
+            const selectedRange = context.workbook.getSelectedRange();
+            selectedRange.numberFormat = [["DD/MM/YYYY"]];
+            await context.sync();
+            showStatus("Format Tanggal (DD/MM/YYYY) berhasil diterapkan!", "success");
+        });
+    } catch (error) {
+        console.error("Gagal menerapkan format tanggal:", error);
+        showStatus(`Terjadi kesalahan: ${error.message}`, "danger");
+    }
+}
+
+/**
  * Helper: Mengubah string menjadi format Proper Case (Title Case).
- * Contoh: "laporan KEUANGAN divisi a" -> "Laporan Keuangan Divisi A"
  * 
  * @param {string} str - Teks input
- * @returns {string} Teks dalam format Proper Case
+ * @returns {string} Teks format Proper Case
  */
 function toProperCase(str) {
     return str
@@ -190,12 +351,12 @@ function toProperCase(str) {
 }
 
 /* ==========================================================================
-   4. FITUR 3: TEMPLATE GENERATOR (MATRIKS OTOMATIS)
+   5. FITUR 3: TEMPLATE GENERATOR (EXPANDED TEMPLATES)
    ========================================================================== */
 
 /**
- * Membuat struktur tabel template otomatis pada sheet aktif
- * lengkap dengan header berwarna, formatting, dan validasi data.
+ * Membuat tabel template otomatis pada sheet aktif
+ * lengkap dengan styling hijau Fluent, border, formula, dan validasi data.
  */
 async function handleGenerateTemplate() {
     const selectElement = document.getElementById("template-select");
@@ -204,29 +365,23 @@ async function handleGenerateTemplate() {
     try {
         await Excel.run(async (context) => {
             const worksheet = context.workbook.worksheets.getActiveWorksheet();
-
-            // Ambil konfigurasi header dan contoh baris berdasarkan template
             const templateConfig = getTemplateConfiguration(templateType);
 
-            // Tentukan rentang sel untuk header dan data awal
             const totalCols = templateConfig.headers.length;
-            const totalRows = templateConfig.sampleRows.length + 1; // Termasuk header
+            const totalRows = templateConfig.sampleRows.length + 1;
             
-            // Rentang mulai dari sel A1
             const tableRange = worksheet.getRangeByIndexes(0, 0, totalRows, totalCols);
-            
-            // Masukkan data (Header di baris 0, diikuti baris contoh)
             const allData = [templateConfig.headers, ...templateConfig.sampleRows];
             tableRange.values = allData;
 
-            // Format Header (Baris pertama)
+            // 1. Format Header Baris Pertama
             const headerRange = worksheet.getRangeByIndexes(0, 0, 1, totalCols);
-            headerRange.format.fill.color = "#107c41"; // Warna Hijau Excel Khas Microsoft Fluent
+            headerRange.format.fill.color = "#107c41"; // Hijau Excel Khas Microsoft Fluent
             headerRange.format.font.color = "#FFFFFF"; // Font Putih
             headerRange.format.font.bold = true;
             headerRange.format.horizontalAlignment = "Center";
 
-            // Format seluruh tabel (Border garis tipis dan perataan vertikal)
+            // 2. Format Garis Border
             tableRange.format.borders.getItem("InsideHorizontal").style = "Continuous";
             tableRange.format.borders.getItem("InsideHorizontal").color = "#D3D3D3";
             tableRange.format.borders.getItem("InsideVertical").style = "Continuous";
@@ -234,16 +389,15 @@ async function handleGenerateTemplate() {
             tableRange.format.borders.getItem("EdgeBottom").style = "Continuous";
             tableRange.format.borders.getItem("EdgeBottom").color = "#107c41";
 
-            // Auto-fit lebar kolom agar teks terlihat rapi
+            // 3. Auto-fit lebar kolom
             tableRange.format.autofitColumns();
 
-            // Bekukan (Freeze Panes) baris header agar tetap terlihat saat scroll
+            // 4. Freeze Panes baris atas
             worksheet.freezePanes.freezeRows(1);
 
-            // Tambahkan Data Validation dropdown jika didefinisikan pada template
+            // 5. Data Validation Dropdown jika ada
             if (templateConfig.dropdownValidation) {
                 const { columnIndex, listFormula } = templateConfig.dropdownValidation;
-                // Terapkan ke 100 baris data pertama
                 const validationRange = worksheet.getRangeByIndexes(1, columnIndex, 100, 1);
                 validationRange.dataValidation.rule = {
                     list: {
@@ -263,13 +417,57 @@ async function handleGenerateTemplate() {
 }
 
 /**
- * Helper: Menyediakan skema konfigurasi header dan contoh data per template.
+ * Helper: Skema konfigurasi header dan contoh baris data untuk semua template.
  * 
  * @param {string} type - Identifier jenis template
  * @returns {object} Konfigurasi template
  */
 function getTemplateConfiguration(type) {
     switch (type) {
+        case "arus_kas":
+            return {
+                title: "Laporan Arus Kas (Cash Flow)",
+                headers: ["Tanggal", "Deskripsi Transaksi", "Kategori", "Pemasukan (Debit)", "Pengeluaran (Kredit)", "Saldo", "Keterangan"],
+                sampleRows: [
+                    ["01/08/2026", "Modal Awal Operasional", "Modal", 50000000, 0, "=D2-E2", "Kas Utama"],
+                    ["05/08/2026", "Penjualan Produk Paket A", "Penjualan", 7500000, 0, "=F2+D3-E3", "Transfer Bank"],
+                    ["10/08/2026", "Pembayaran Sewa Server", "Operasional", 0, 1200000, "=F3+D4-E4", "Tagihan Bulanan"]
+                ],
+                dropdownValidation: {
+                    columnIndex: 2, // Kolom Kategori (Index 2 / Kolom C)
+                    listFormula: "Modal, Penjualan, Operasional, Pemasaran, Gaji, Lain-lain"
+                }
+            };
+
+        case "jadwal_proyek":
+            return {
+                title: "Jadwal Proyek / Project Tracker",
+                headers: ["No", "Nama Tugas / Task", "Penanggung Jawab", "Tanggal Mulai", "Target Selesai", "Status", "Prioritas", "Catatan"],
+                sampleRows: [
+                    [1, "Riset Kebutuhan Pengguna", "Budi Santoso", "01/08/2026", "07/08/2026", "Selesai", "Tinggi", "Hasil riset valid"],
+                    [2, "Desain UI & Arsitektur Add-in", "Dewi Lestari", "08/08/2026", "15/08/2026", "Sedang Berjalan", "Tinggi", "Desain Fluent UI"],
+                    [3, "Pengujian Fitur & Sideloading", "Ahmad Fauzi", "16/08/2026", "22/08/2026", "Belum Dimulai", "Sedang", "Menunggu tahap coding"]
+                ],
+                dropdownValidation: {
+                    columnIndex: 5, // Kolom Status (Index 5 / Kolom F)
+                    listFormula: "Belum Dimulai, Sedang Berjalan, Dalam Review, Selesai, Tertunda"
+                }
+            };
+
+        case "invoice":
+            return {
+                title: "Daftar Tagihan / Invoice",
+                headers: ["No", "Deskripsi Barang / Layanan", "Qty", "Harga Satuan", "Total Harga", "Status Pembayaran"],
+                sampleRows: [
+                    [1, "Jasa Pengembangan Add-In Excel", 1, 15000000, "=C2*D2", "Lunas"],
+                    [2, "Maintenance & Cloud Hosting Server", 12, 500000, "=C3*D3", "Belum Bayar"]
+                ],
+                dropdownValidation: {
+                    columnIndex: 5, // Kolom Status Pembayaran (Index 5 / Kolom F)
+                    listFormula: "Lunas, Belum Bayar, Uang Muka (DP), Dibatalkan"
+                }
+            };
+
         case "media":
         case "media_partner":
             return {
@@ -280,7 +478,7 @@ function getTemplateConfiguration(type) {
                     [2, "Kampus Update", "Instagram", "Siti Rahma", "081234567890", "Draft", 1000000, "Menunggu revisi proposal"]
                 ],
                 dropdownValidation: {
-                    columnIndex: 5, // Kolom Status MoU (Index ke-5 / Kolom F)
+                    columnIndex: 5,
                     listFormula: "Draft, Diskusi, Disetujui, Selesai, Dibatalkan"
                 }
             };
@@ -308,7 +506,7 @@ function getTemplateConfiguration(type) {
                     [2, "Dewi Lestari", "Pemasaran", 50, 55, "=E3/D3", "Sangat Baik", "Melampaui target bulanan"]
                 ],
                 dropdownValidation: {
-                    columnIndex: 6, // Kolom Status Evaluasi (Index ke-6 / Kolom G)
+                    columnIndex: 6,
                     listFormula: "Sangat Baik, Baik, Cukup, Kurang, Perlu Peningkatan"
                 }
             };
@@ -316,13 +514,13 @@ function getTemplateConfiguration(type) {
 }
 
 /* ==========================================================================
-   5. FITUR 4: MASS ACTION (SPLIT DATA KE BANYAK SHEET)
+   6. FITUR 4: MASS ACTION (SPLIT DATA KE BANYAK SHEET)
    ========================================================================== */
 
 /**
- * Membaca data pada tabel atau kolom yang dipilih pengguna,
- * memisahkan baris data berdasarkan nilai kategori unik,
- * dan membuatkan Worksheet baru untuk setiap kategori secara otomatis.
+ * Membaca data pada tabel yang diblok pengguna,
+ * memisahkan data berdasarkan kategori unik pada kolom pertama,
+ * dan membuat sheet baru secara otomatis untuk setiap kategori.
  */
 async function handleSplitDataToSheets() {
     try {
@@ -330,7 +528,6 @@ async function handleSplitDataToSheets() {
             const activeWorksheet = context.workbook.worksheets.getActiveWorksheet();
             const selectedRange = context.workbook.getSelectedRange();
             
-            // Muat data dan koordinat dari rentang yang dipilih
             selectedRange.load(["values", "rowIndex", "columnIndex", "rowCount", "columnCount"]);
             const workbookWorksheets = context.workbook.worksheets;
             workbookWorksheets.load("items/name");
@@ -344,14 +541,10 @@ async function handleSplitDataToSheets() {
                 return;
             }
 
-            // Baris pertama dianggap sebagai Header
             const headers = values[0];
             const dataRows = values.slice(1);
-
-            // Ambil nama sheet yang sudah ada untuk menghindari duplikasi error
             const existingSheetNames = new Set(workbookWorksheets.items.map((ws) => ws.name.toLowerCase()));
 
-            // Cari kategori unik dari kolom pertama rentang yang dipilih
             const categoryMap = new Map();
 
             dataRows.forEach((row) => {
@@ -372,9 +565,7 @@ async function handleSplitDataToSheets() {
 
             let createdSheetCount = 0;
 
-            // Iterasi untuk setiap kategori unik dan buat sheet baru
             for (const [categoryName, rows] of categoryMap.entries()) {
-                // Bersihkan karakter terlarang untuk nama worksheet Excel (: \ / ? * [ ]) dan batasi 31 karakter
                 const sanitizedSheetName = sanitizeSheetName(categoryName);
                 
                 let targetSheet;
@@ -386,23 +577,20 @@ async function handleSplitDataToSheets() {
                     targetSheet = workbookWorksheets.getItem(sanitizedSheetName);
                 }
 
-                // Tulis Header dan Data ke sheet baru
                 const outputData = [headers, ...rows];
                 const targetRange = targetSheet.getRangeByIndexes(0, 0, outputData.length, headers.length);
                 targetRange.values = outputData;
 
-                // Format Header Sheet Baru
                 const headerRange = targetSheet.getRangeByIndexes(0, 0, 1, headers.length);
                 headerRange.format.fill.color = "#107c41";
                 headerRange.format.font.color = "#FFFFFF";
                 headerRange.format.font.bold = true;
                 
-                // Auto-fit kolom di sheet baru
                 targetRange.format.autofitColumns();
             }
 
             await context.sync();
-            showStatus(`Selesai! Berhasil memisahkan data ke dalam ${categoryMap.size} kategori (${createdSheetCount} sheet baru dibuat).`, "success");
+            showStatus(`Selesai! Berhasil memisahkan data ke ${categoryMap.size} kategori (${createdSheetCount} sheet baru dibuat).`, "success");
         });
     } catch (error) {
         console.error("Gagal melakukan Split Data ke Sheets:", error);
@@ -411,8 +599,7 @@ async function handleSplitDataToSheets() {
 }
 
 /**
- * Helper: Membersihkan nama sheet agar memenuhi syarat penamaan Worksheet Excel.
- * Karakter yang dilarang: \ / ? * : [ ] dan maksimal panjang 31 karakter.
+ * Helper: Membersihkan nama sheet agar valid di Excel (maksimal 31 karakter).
  * 
  * @param {string} name - Nama kategori mentah
  * @returns {string} Nama sheet yang valid
@@ -423,12 +610,11 @@ function sanitizeSheetName(name) {
 }
 
 /* ==========================================================================
-   6. HELPER FEEDBACK STATUS UI
+   7. HELPER FEEDBACK STATUS UI
    ========================================================================== */
 
 /**
- * Menampilkan pesan notifikasi status aksi pada UI Task Pane jika elemen status tersedia,
- * atau menampilkan pesan log dan alert sederhana.
+ * Menampilkan pesan status aksi pada kotak notifikasi UI Task Pane.
  * 
  * @param {string} message - Pesan yang ditampilkan
  * @param {'success' | 'warning' | 'danger' | 'info'} type - Tipe notifikasi
@@ -440,7 +626,6 @@ function showStatus(message, type = "info") {
         statusBox.className = `status-alert status-${type}`;
         statusBox.style.display = "block";
 
-        // Sembunyikan otomatis setelah 5 detik
         setTimeout(() => {
             if (statusBox) {
                 statusBox.style.display = "none";

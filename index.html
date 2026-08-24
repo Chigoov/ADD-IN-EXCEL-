@@ -8,7 +8,7 @@
     <!-- Office.js API -->
     <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
     
-    <!-- Google Fonts & Fluent UI Icons Style -->
+    <!-- Google Fonts Segoe UI -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -23,8 +23,8 @@
             --text-main: #242424;
             --text-muted: #616161;
             --border-color: #e0e0e0;
-            --shadow-sm: 0 1.6px 3.6px 0 rgba(0,0,0,0.13), 0 0.3px 0.9px 0 rgba(0,0,0,0.11);
-            --shadow-md: 0 3.2px 7.2px 0 rgba(0,0,0,0.13), 0 0.6px 1.8px 0 rgba(0,0,0,0.11);
+            --shadow-sm: 0 1.6px 3.6px 0 rgba(0,0,0,0.1), 0 0.3px 0.9px 0 rgba(0,0,0,0.08);
+            --shadow-md: 0 3.2px 7.2px 0 rgba(0,0,0,0.12), 0 0.6px 1.8px 0 rgba(0,0,0,0.1);
             --radius-sm: 4px;
             --radius-md: 8px;
         }
@@ -39,7 +39,7 @@
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
             background-color: var(--surface-bg);
             color: var(--text-main);
-            padding: 16px;
+            padding: 14px;
             font-size: 13px;
             line-height: 1.4;
         }
@@ -48,10 +48,16 @@
         .app-header {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding-bottom: 14px;
+            justify-content: space-between;
+            padding-bottom: 12px;
             border-bottom: 1px solid var(--border-color);
-            margin-bottom: 16px;
+            margin-bottom: 14px;
+        }
+
+        .brand-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .app-logo {
@@ -69,7 +75,7 @@
         }
 
         .app-title-group h1 {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 600;
             color: var(--text-main);
         }
@@ -79,6 +85,31 @@
             color: var(--text-muted);
         }
 
+        .btn-settings-toggle {
+            background: none;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 4px 8px;
+            font-size: 11px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .btn-settings-toggle:hover {
+            background-color: #eee;
+            color: var(--text-main);
+        }
+
+        /* Settings Card (Collapsible) */
+        #settings-card {
+            display: none;
+            background-color: #f3f9f4;
+            border: 1px solid #c8e6c9;
+            border-radius: var(--radius-md);
+            padding: 12px;
+            margin-bottom: 14px;
+        }
+
         /* Status Toast Alert */
         #status-message {
             display: none;
@@ -86,7 +117,7 @@
             border-radius: var(--radius-sm);
             font-size: 12px;
             font-weight: 500;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
             animation: fadeIn 0.3s ease;
         }
 
@@ -167,7 +198,7 @@
             margin-bottom: 4px;
         }
 
-        textarea.form-control, select.form-control {
+        textarea.form-control, select.form-control, input.form-control {
             width: 100%;
             padding: 8px 10px;
             font-size: 12px;
@@ -180,7 +211,7 @@
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
-        textarea.form-control:focus, select.form-control:focus {
+        textarea.form-control:focus, select.form-control:focus, input.form-control:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 2px rgba(16, 124, 65, 0.2);
         }
@@ -231,14 +262,11 @@
             border-color: #c8c6c4;
         }
 
-        .btn-secondary:active {
-            transform: scale(0.98);
-        }
-
-        .btn-group-2 {
+        .btn-grid-4 {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
+            gap: 6px;
+            margin-bottom: 6px;
         }
 
         .btn-purple {
@@ -265,14 +293,29 @@
 </head>
 <body>
 
-    <!-- Header Task Pane -->
+    <!-- Header Bar -->
     <header class="app-header">
-        <div class="app-logo">X</div>
-        <div class="app-title-group">
-            <h1>Excel Smart Assistant</h1>
-            <p>Automasi & Vibe Coding Tools</p>
+        <div class="brand-group">
+            <div class="app-logo">X</div>
+            <div class="app-title-group">
+                <h1>Excel Smart Assistant</h1>
+                <p>Otomatisasi & AI Productivity</p>
+            </div>
         </div>
+        <button id="btn-toggle-settings" class="btn-settings-toggle" title="Pengaturan API Key">
+            ⚙️ AI Config
+        </button>
     </header>
+
+    <!-- Settings Card (API Key Konfigurasi) -->
+    <div id="settings-card">
+        <div class="form-group">
+            <label for="gemini-api-key"><strong>Google Gemini API Key (Opsional):</strong></label>
+            <input type="password" id="gemini-api-key" class="form-control" placeholder="Masukkan AI API Key Anda (AI Studio)..." />
+            <p class="help-text">Jika diisi, AI Formula akan menggunakan model Gemini AI secara dinamis. Jika kosong, sistem otomatis menggunakan parser bawaan.</p>
+        </div>
+        <button id="btn-save-key" class="btn btn-secondary" style="padding: 5px;">💾 Simpan API Key</button>
+    </div>
 
     <!-- Status Alert Box -->
     <div id="status-message" class="status-alert"></div>
@@ -285,12 +328,12 @@
         </div>
         <div class="form-group">
             <label for="formula-input">Deskripsikan logika formula yang diinginkan:</label>
-            <textarea id="formula-input" class="form-control" placeholder="Contoh: Jumlahkan A1 sampai A10 atau Jika nilai A1 >= 75 Lulus..."></textarea>
+            <textarea id="formula-input" class="form-control" placeholder="Contoh: Jumlahkan nilai di A1 sampai A10 jika lebih dari 100..."></textarea>
         </div>
         <button id="btn-generate-formula" class="btn btn-primary">
             ⚡ Generate & Insert Formula
         </button>
-        <p class="help-text">Hasil formula akan langsung disisipkan ke sel yang sedang aktif.</p>
+        <p class="help-text">Hasil formula akan otomatis disisipkan ke sel yang sedang aktif.</p>
     </section>
 
     <!-- 2. Smart Data Cleaner -->
@@ -299,15 +342,34 @@
             <h2>🧹 1-Click Data Cleaner</h2>
             <span class="badge">Cleanup</span>
         </div>
-        <div class="btn-group-2">
+        
+        <!-- Grid Tombol Pembersihan Teks -->
+        <div class="btn-grid-4">
             <button id="btn-clean-trim" class="btn btn-secondary">
                 ✂️ Trim Spasi
             </button>
             <button id="btn-clean-proper" class="btn btn-secondary">
                 🔤 Proper Case
             </button>
+            <button id="btn-clean-upper" class="btn btn-secondary">
+                🔠 UPPERCASE
+            </button>
+            <button id="btn-clean-lower" class="btn btn-secondary">
+                🔡 lowercase
+            </button>
         </div>
-        <p class="help-text">Blok sel yang ingin dibersihkan terlebih dahulu sebelum mengklik tombol.</p>
+
+        <!-- Tombol Format Angka & Tanggal -->
+        <div class="btn-grid-4">
+            <button id="btn-format-rupiah" class="btn btn-secondary">
+                💰 Format Rp
+            </button>
+            <button id="btn-format-date" class="btn btn-secondary">
+                📅 Format Tgl
+            </button>
+        </div>
+
+        <p class="help-text">Blok rentang sel yang ingin dibersihkan/diformat sebelum mengklik tombol.</p>
     </section>
 
     <!-- 3. Template Generator -->
@@ -320,6 +382,9 @@
             <label for="template-select">Pilih Jenis Template:</label>
             <select id="template-select" class="form-control">
                 <option value="kinerja">Evaluasi Kinerja Karyawan</option>
+                <option value="arus_kas">Laporan Arus Kas (Cash Flow)</option>
+                <option value="jadwal_proyek">Jadwal Proyek / Project Tracker</option>
+                <option value="invoice">Daftar Tagihan / Invoice</option>
                 <option value="media">Media Partner Tracker</option>
                 <option value="literatur">Tinjauan Pustaka (Literature Review)</option>
             </select>
@@ -327,7 +392,7 @@
         <button id="btn-generate-template" class="btn btn-primary">
             🚀 Buat Template
         </button>
-        <p class="help-text">Membuat tabel otomatis dengan header hijau Fluent dan validasi data.</p>
+        <p class="help-text">Membuat tabel rapi dengan header hijau Fluent, autofit, dan validasi data.</p>
     </section>
 
     <!-- 4. Mass Action -->
