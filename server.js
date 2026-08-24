@@ -56,19 +56,6 @@ const requestHandler = (req, res) => {
         reqPath = '/index.html';
     }
 
-    // Tangani permintaan icon default jika belum ada file gambar fisik
-    if (reqPath.startsWith('/assets/icon-')) {
-        const svgIcon = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-                <rect width="64" height="64" rx="8" fill="#107c41"/>
-                <text x="32" y="44" font-family="Segoe UI, sans-serif" font-size="36" font-weight="bold" fill="#ffffff" text-anchor="middle">X</text>
-            </svg>
-        `.trim();
-        res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
-        res.end(svgIcon);
-        return;
-    }
-
     const filePath = path.join(PUBLIC_DIR, reqPath);
 
     // Cegah directory traversal
