@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Smart Assistant</title>
+    
+    <!-- Office.js API -->
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    
+    <!-- Google Fonts & Fluent UI Icons Style -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #107c41;
+            --primary-hover: #0c6133;
+            --primary-light: #e8f5e9;
+            --surface-bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #242424;
+            --text-muted: #616161;
+            --border-color: #e0e0e0;
+            --shadow-sm: 0 1.6px 3.6px 0 rgba(0,0,0,0.13), 0 0.3px 0.9px 0 rgba(0,0,0,0.11);
+            --shadow-md: 0 3.2px 7.2px 0 rgba(0,0,0,0.13), 0 0.6px 1.8px 0 rgba(0,0,0,0.11);
+            --radius-sm: 4px;
+            --radius-md: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background-color: var(--surface-bg);
+            color: var(--text-main);
+            padding: 16px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        /* Header Bar */
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 16px;
+        }
+
+        .app-logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #107c41, #1fb35a);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: 18px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .app-title-group h1 {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .app-title-group p {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Status Toast Alert */
+        #status-message {
+            display: none;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 14px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .status-alert.status-success {
+            background-color: #dff6dd;
+            color: #107c41;
+            border-left: 4px solid #107c41;
+        }
+
+        .status-alert.status-warning {
+            background-color: #fff4ce;
+            color: #795e00;
+            border-left: 4px solid #fce100;
+        }
+
+        .status-alert.status-danger {
+            background-color: #fde7e9;
+            color: #a80000;
+            border-left: 4px solid #d13438;
+        }
+
+        .status-alert.status-info {
+            background-color: #eff6fc;
+            color: #004578;
+            border-left: 4px solid #0078d4;
+        }
+
+        /* Section Cards */
+        .feature-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            padding: 14px;
+            margin-bottom: 14px;
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .feature-card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .card-header h2 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background-color: var(--primary-light);
+            color: var(--primary-color);
+            text-transform: uppercase;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        textarea.form-control, select.form-control {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 12px;
+            font-family: inherit;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background-color: #fff;
+            color: var(--text-main);
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        textarea.form-control:focus, select.form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(16, 124, 65, 0.2);
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 55px;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: #ffffff;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            background-color: #ffffff;
+            color: var(--text-main);
+            border-color: var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #f3f2f1;
+            border-color: #c8c6c4;
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-group-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .btn-purple {
+            background-color: #5c2d91;
+            color: #ffffff;
+        }
+
+        .btn-purple:hover {
+            background-color: #492373;
+        }
+
+        .help-text {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            line-height: 1.3;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Task Pane -->
+    <header class="app-header">
+        <div class="app-logo">X</div>
+        <div class="app-title-group">
+            <h1>Excel Smart Assistant</h1>
+            <p>Automasi & Vibe Coding Tools</p>
+        </div>
+    </header>
+
+    <!-- Status Alert Box -->
+    <div id="status-message" class="status-alert"></div>
+
+    <!-- 1. AI Formula Assistant -->
+    <section class="feature-card">
+        <div class="card-header">
+            <h2>✨ AI Formula Assistant</h2>
+            <span class="badge">AI Prompt</span>
+        </div>
+        <div class="form-group">
+            <label for="formula-input">Deskripsikan logika formula yang diinginkan:</label>
+            <textarea id="formula-input" class="form-control" placeholder="Contoh: Jumlahkan A1 sampai A10 atau Jika nilai A1 >= 75 Lulus..."></textarea>
+        </div>
+        <button id="btn-generate-formula" class="btn btn-primary">
+            ⚡ Generate & Insert Formula
+        </button>
+        <p class="help-text">Hasil formula akan langsung disisipkan ke sel yang sedang aktif.</p>
+    </section>
+
+    <!-- 2. Smart Data Cleaner -->
+    <section class="feature-card">
+        <div class="card-header">
+            <h2>🧹 1-Click Data Cleaner</h2>
+            <span class="badge">Cleanup</span>
+        </div>
+        <div class="btn-group-2">
+            <button id="btn-clean-trim" class="btn btn-secondary">
+                ✂️ Trim Spasi
+            </button>
+            <button id="btn-clean-proper" class="btn btn-secondary">
+                🔤 Proper Case
+            </button>
+        </div>
+        <p class="help-text">Blok sel yang ingin dibersihkan terlebih dahulu sebelum mengklik tombol.</p>
+    </section>
+
+    <!-- 3. Template Generator -->
+    <section class="feature-card">
+        <div class="card-header">
+            <h2>📊 Template Generator</h2>
+            <span class="badge">Matrix</span>
+        </div>
+        <div class="form-group">
+            <label for="template-select">Pilih Jenis Template:</label>
+            <select id="template-select" class="form-control">
+                <option value="kinerja">Evaluasi Kinerja Karyawan</option>
+                <option value="media">Media Partner Tracker</option>
+                <option value="literatur">Tinjauan Pustaka (Literature Review)</option>
+            </select>
+        </div>
+        <button id="btn-generate-template" class="btn btn-primary">
+            🚀 Buat Template
+        </button>
+        <p class="help-text">Membuat tabel otomatis dengan header hijau Fluent dan validasi data.</p>
+    </section>
+
+    <!-- 4. Mass Action -->
+    <section class="feature-card">
+        <div class="card-header">
+            <h2>📑 Mass Action: Split Sheets</h2>
+            <span class="badge">Mass Action</span>
+        </div>
+        <button id="btn-split-sheets" class="btn btn-purple">
+            📂 Split Data ke Banyak Sheet
+        </button>
+        <p class="help-text">Blok tabel/kolom kategori (termasuk header), sheet baru akan dibuat untuk setiap kategori unik.</p>
+    </section>
+
+    <!-- Logic Script -->
+    <script src="taskpane.js"></script>
+</body>
+</html>
