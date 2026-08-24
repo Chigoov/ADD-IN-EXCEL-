@@ -28,14 +28,14 @@
   <!-- Deskripsi Singkat Add-In -->
   <Description DefaultValue="Asisten otomatisasi cerdas: Pembersih data, Formula AI, dan Template Generator otomatis." />
   
-  <!-- Ikon Add-In (Default menggunakan icon standar localhost/web) -->
-  <IconUrl DefaultValue="https://localhost:3000/assets/icon-32.png" />
-  <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-80.png" />
-  <SupportUrl DefaultValue="https://localhost:3000" />
+  <!-- Ikon Add-In (Default menggunakan icon standar GitHub Pages) -->
+  <IconUrl DefaultValue="https://chigoov.github.io/ADD-IN-EXCEL-/assets/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://chigoov.github.io/ADD-IN-EXCEL-/assets/icon-80.png" />
+  <SupportUrl DefaultValue="https://chigoov.github.io/ADD-IN-EXCEL-" />
   
   <!-- Domain yang diizinkan untuk diakses di dalam Add-In -->
   <AppDomains>
-    <AppDomain>https://localhost:3000</AppDomain>
+    <AppDomain>https://chigoov.github.io</AppDomain>
   </AppDomains>
 
   <!-- Menentukan bahwa Add-In ini berjalan di Excel (Workbook) -->
@@ -45,7 +45,7 @@
 
   <!-- Pengaturan default jika Office versi lama digunakan -->
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://localhost:3000/index.html" />
+    <SourceLocation DefaultValue="https://chigoov.github.io/ADD-IN-EXCEL-/index.html" />
   </DefaultSettings>
 
   <!-- Izin Add-In: ReadWriteDocument diperlukan untuk membaca & menulis data ke sel Excel -->
@@ -95,13 +95,13 @@
     <!-- Sumber daya (Resources): URL, string label, tooltip, dan icon -->
     <Resources>
       <bt:Images>
-        <bt:Image id="Contoso.tpicon_16x16" DefaultValue="https://localhost:3000/assets/icon-16.png" />
-        <bt:Image id="Contoso.tpicon_32x32" DefaultValue="https://localhost:3000/assets/icon-32.png" />
-        <bt:Image id="Contoso.tpicon_80x80" DefaultValue="https://localhost:3000/assets/icon-80.png" />
+        <bt:Image id="Contoso.tpicon_16x16" DefaultValue="https://chigoov.github.io/ADD-IN-EXCEL-/assets/icon-16.png" />
+        <bt:Image id="Contoso.tpicon_32x32" DefaultValue="https://chigoov.github.io/ADD-IN-EXCEL-/assets/icon-32.png" />
+        <bt:Image id="Contoso.tpicon_80x80" DefaultValue="https://chigoov.github.io/ADD-IN-EXCEL-/assets/icon-80.png" />
       </bt:Images>
       <bt:Urls>
         <!-- URL halaman Task Pane utama -->
-        <bt:Url id="Contoso.Taskpane.Url" DefaultValue="https://localhost:3000/index.html" />
+        <bt:Url id="Contoso.Taskpane.Url" DefaultValue="https://chigoov.github.io/ADD-IN-EXCEL-/index.html" />
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="Contoso.TaskpaneButton.Label" DefaultValue="Buka Smart Assistant" />
