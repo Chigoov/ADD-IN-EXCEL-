@@ -58,7 +58,7 @@
         <DesktopFormFactor>
           <!-- Tombol pada Ribbon Tab "Home" di Excel -->
           <ExtensionPoint xsi:type="PrimaryCommandSurface">
-            <CustomTab id="TabHome">
+            <OfficeTab id="TabHome">
               <!-- Group baru di tab Home -->
               <Group id="Contoso.SmartAssistant.Group">
                 <Label resid="Contoso.GroupLabel" />
@@ -86,7 +86,7 @@
                   </Action>
                 </Control>
               </Group>
-            </CustomTab>
+            </OfficeTab>
           </ExtensionPoint>
         </DesktopFormFactor>
       </Host>
