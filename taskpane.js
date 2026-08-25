@@ -137,18 +137,27 @@ async function handleGenerateFormula() {
     showStatus("Sedang menyusun formula...", "info");
 
     let formulaResult = "";
+    let isFallback = false;
+    let fallbackReason = "";
+
+    if (apiKey) {
+        try {
+            formulaResult = await fetchFormulaFromGemini(userPrompt, apiKey);
+        } catch (apiErr) {
+            console.warn("Gemini API gagal, beralih ke parser lokal bawaan:", apiErr);
+            fallbackReason = apiErr.message;
+            isFallback = true;
+            formulaResult = parseNaturalLanguageToFormula(userPrompt);
+        }
+    } else {
+        formulaResult = parseNaturalLanguageToFormula(userPrompt);
+    }
+
+    if (!formulaResult) {
+        formulaResult = parseNaturalLanguageToFormula(userPrompt);
+    }
 
     try {
-        if (apiKey) {
-            formulaResult = await fetchFormulaFromGemini(userPrompt, apiKey);
-        } else {
-            formulaResult = parseNaturalLanguageToFormula(userPrompt);
-        }
-
-        if (!formulaResult) {
-            formulaResult = parseNaturalLanguageToFormula(userPrompt);
-        }
-
         // Tuliskan formula ke sel aktif di Excel
         await Excel.run(async (context) => {
             const activeCell = context.workbook.getActiveCell();
@@ -156,11 +165,15 @@ async function handleGenerateFormula() {
             activeCell.select();
             await context.sync();
 
-            showStatus(`Formula berhasil dibuat: ${formulaResult}`, "success");
+            if (isFallback) {
+                showStatus(`Formula disisipkan (Parser Lokal): ${formulaResult}. [Catatan API: ${fallbackReason}]`, "warning");
+            } else {
+                showStatus(`Formula berhasil dibuat (Gemini AI): ${formulaResult}`, "success");
+            }
         });
     } catch (error) {
-        console.error("Gagal membuat formula:", error);
-        showStatus(`Terjadi kesalahan: ${error.message}`, "danger");
+        console.error("Gagal memasukkan formula ke Excel:", error);
+        showStatus(`Gagal memasukkan formula: ${error.message}`, "danger");
     }
 }
 
@@ -283,14 +296,21 @@ Instruksi: "${prompt}"`
         ]
     };
 
-    const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody)
-    });
+    let response;
+    try {
+        response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody)
+        });
+    } catch (networkErr) {
+        throw new Error(`Koneksi internet/CORS: ${networkErr.message}`);
+    }
 
     if (!response.ok) {
-        throw new Error(`Gemini API: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        const detailedMsg = errorData.error?.message || `HTTP ${response.status} (${response.statusText || "Unauthorized/Invalid"})`;
+        throw new Error(`Gemini API: ${detailedMsg}`);
     }
 
     const data = await response.json();
@@ -321,18 +341,22 @@ Formula: "${formula}"`
         ]
     };
 
-    const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody)
-    });
+    try {
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody)
+        });
 
-    if (!response.ok) {
+        if (!response.ok) {
+            return explainFormulaLocally(formula);
+        }
+
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || explainFormulaLocally(formula);
+    } catch {
         return explainFormulaLocally(formula);
     }
-
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || explainFormulaLocally(formula);
 }
 
 /**
