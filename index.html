@@ -18,6 +18,11 @@
             --primary-color: #107c41;
             --primary-hover: #0c6133;
             --primary-light: #e8f5e9;
+            --accent-blue: #0078d4;
+            --accent-blue-hover: #106ebe;
+            --accent-purple: #5c2d91;
+            --accent-purple-hover: #492373;
+            --accent-amber: #d83b01;
             --surface-bg: #f8f9fa;
             --card-bg: #ffffff;
             --text-main: #242424;
@@ -93,6 +98,7 @@
             font-size: 11px;
             cursor: pointer;
             color: var(--text-muted);
+            transition: all 0.15s ease;
         }
 
         .btn-settings-toggle:hover {
@@ -186,6 +192,21 @@
             text-transform: uppercase;
         }
 
+        .badge.blue {
+            background-color: #e1dfdd;
+            color: #005a9e;
+        }
+
+        .badge.purple {
+            background-color: #f3e5f5;
+            color: var(--accent-purple);
+        }
+
+        .badge.amber {
+            background-color: #fff3e0;
+            color: #e65100;
+        }
+
         .form-group {
             margin-bottom: 10px;
         }
@@ -218,7 +239,7 @@
 
         textarea.form-control {
             resize: vertical;
-            min-height: 55px;
+            min-height: 50px;
         }
 
         /* Buttons */
@@ -262,6 +283,38 @@
             border-color: #c8c6c4;
         }
 
+        .btn-blue {
+            background-color: var(--accent-blue);
+            color: #ffffff;
+        }
+
+        .btn-blue:hover {
+            background-color: var(--accent-blue-hover);
+        }
+
+        .btn-purple {
+            background-color: var(--accent-purple);
+            color: #ffffff;
+        }
+
+        .btn-purple:hover {
+            background-color: var(--accent-purple-hover);
+        }
+
+        .btn-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .btn-grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
         .btn-grid-4 {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -269,20 +322,59 @@
             margin-bottom: 6px;
         }
 
-        .btn-purple {
-            background-color: #5c2d91;
-            color: #ffffff;
-        }
-
-        .btn-purple:hover {
-            background-color: #492373;
-        }
-
         .help-text {
             font-size: 11px;
             color: var(--text-muted);
             margin-top: 6px;
             line-height: 1.3;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            background-color: #f8f9fa;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 8px;
+            margin-bottom: 8px;
+        }
+
+        .stat-item {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .stat-item strong {
+            display: block;
+            font-size: 13px;
+            color: var(--text-main);
+        }
+
+        /* Explanation Box */
+        #formula-explain-box {
+            display: none;
+            background-color: #f0f7ff;
+            border: 1px solid #cce4f7;
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            margin-top: 8px;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #004578;
+        }
+
+        #formula-explain-box pre {
+            background: #fff;
+            border: 1px solid #b3d7f5;
+            padding: 6px;
+            border-radius: 3px;
+            font-family: Consolas, monospace;
+            font-size: 11px;
+            margin-bottom: 6px;
+            word-break: break-all;
+            white-space: pre-wrap;
         }
 
         @keyframes fadeIn {
@@ -312,7 +404,7 @@
         <div class="form-group">
             <label for="gemini-api-key"><strong>Google Gemini API Key (Opsional):</strong></label>
             <input type="password" id="gemini-api-key" class="form-control" placeholder="Masukkan AI API Key Anda (AI Studio)..." />
-            <p class="help-text">Jika diisi, AI Formula akan menggunakan model Gemini AI secara dinamis. Jika kosong, sistem otomatis menggunakan parser bawaan.</p>
+            <p class="help-text">Jika diisi, AI Formula & Explainer akan menggunakan model Gemini AI secara dinamis. Jika kosong, sistem menggunakan parser bawaan.</p>
         </div>
         <button id="btn-save-key" class="btn btn-secondary" style="padding: 5px;">💾 Simpan API Key</button>
     </div>
@@ -320,7 +412,7 @@
     <!-- Status Alert Box -->
     <div id="status-message" class="status-alert"></div>
 
-    <!-- 1. AI Formula Assistant -->
+    <!-- 1. AI Formula Assistant & Explainer -->
     <section class="feature-card">
         <div class="card-header">
             <h2>✨ AI Formula Assistant</h2>
@@ -330,13 +422,60 @@
             <label for="formula-input">Deskripsikan logika formula yang diinginkan:</label>
             <textarea id="formula-input" class="form-control" placeholder="Contoh: Jumlahkan nilai di A1 sampai A10 jika lebih dari 100..."></textarea>
         </div>
-        <button id="btn-generate-formula" class="btn btn-primary">
+        <button id="btn-generate-formula" class="btn btn-primary" style="margin-bottom: 6px;">
             ⚡ Generate & Insert Formula
         </button>
-        <p class="help-text">Hasil formula akan otomatis disisipkan ke sel yang sedang aktif.</p>
+        
+        <!-- Formula Explainer & Error Fixer Grid -->
+        <div class="btn-grid-2">
+            <button id="btn-explain-formula" class="btn btn-secondary" title="Jelaskan alur kerja rumus pada sel aktif">
+                💡 Jelaskan Rumus
+            </button>
+            <button id="btn-fix-formula-error" class="btn btn-secondary" title="Bungkus rumus dengan IFERROR jika ada potensi error">
+                🛠️ Auto-Fix Error
+            </button>
+        </div>
+
+        <!-- Box Hasil Penjelasan Rumus AI -->
+        <div id="formula-explain-box">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <strong>Penjelasan Rumus:</strong>
+                <button id="btn-close-explain" style="background: none; border: none; cursor: pointer; font-size: 11px; color: #666;">✕ Tutup</button>
+            </div>
+            <pre id="explain-formula-text"></pre>
+            <p id="explain-content"></p>
+        </div>
+
+        <p class="help-text">Hasil formula otomatis disisipkan ke sel aktif. Klik <i>Jelaskan Rumus</i> untuk membaca rumus di sel yang diblok.</p>
     </section>
 
-    <!-- 2. Smart Data Cleaner -->
+    <!-- 2. Quick Statistics & Auto-Total -->
+    <section class="feature-card">
+        <div class="card-header">
+            <h2>⚡ Quick Stats & Auto-Total</h2>
+            <span class="badge blue">Live Stats</span>
+        </div>
+        
+        <!-- Grid Statistik Instan -->
+        <div class="stats-grid">
+            <div class="stat-item">Total (Sum): <strong id="stat-sum">-</strong></div>
+            <div class="stat-item">Rata-rata: <strong id="stat-avg">-</strong></div>
+            <div class="stat-item">Min / Max: <strong id="stat-minmax">-</strong></div>
+            <div class="stat-item">Jumlah Sel: <strong id="stat-count">-</strong></div>
+        </div>
+
+        <div class="btn-grid-2">
+            <button id="btn-calc-stats" class="btn btn-secondary">
+                🔄 Hitung Statistik
+            </button>
+            <button id="btn-insert-total-row" class="btn btn-primary">
+                ➕ Baris Total Akuntansi
+            </button>
+        </div>
+        <p class="help-text">Blok rentang angka lalu klik <i>Hitung Statistik</i> atau sisipkan baris total dengan double-border.</p>
+    </section>
+
+    <!-- 3. Smart Data Cleaner -->
     <section class="feature-card">
         <div class="card-header">
             <h2>🧹 1-Click Data Cleaner</h2>
@@ -360,7 +499,7 @@
         </div>
 
         <!-- Tombol Format Angka & Tanggal -->
-        <div class="btn-grid-4">
+        <div class="btn-grid-2">
             <button id="btn-format-rupiah" class="btn btn-secondary">
                 💰 Format Rp
             </button>
@@ -372,7 +511,90 @@
         <p class="help-text">Blok rentang sel yang ingin dibersihkan/diformat sebelum mengklik tombol.</p>
     </section>
 
-    <!-- 3. Template Generator -->
+    <!-- 4. Smart Deduplication & Text Tools -->
+    <section class="feature-card">
+        <div class="card-header">
+            <h2>🔍 Duplikat & Text Splitter</h2>
+            <span class="badge amber">Tools</span>
+        </div>
+
+        <!-- Aksi Duplikasi Data -->
+        <div class="btn-grid-3">
+            <button id="btn-highlight-duplicates" class="btn btn-secondary" title="Warnai data ganda">
+                🎨 Sorot Duplikat
+            </button>
+            <button id="btn-remove-duplicates" class="btn btn-secondary" title="Hapus baris yang ganda">
+                🗑️ Hapus Ganda
+            </button>
+            <button id="btn-extract-unique" class="btn btn-secondary" title="Salin nilai unik ke kolom samping">
+                📋 Ekstrak Unik
+            </button>
+        </div>
+
+        <!-- Pemisah & Penggabung Teks -->
+        <div class="form-group" style="margin-top: 8px;">
+            <label for="text-delimiter">Pemisah Teks (Delimiter):</label>
+            <select id="text-delimiter" class="form-control" style="padding: 4px 8px; font-size: 11px;">
+                <option value=" ">Spasi (Nama / Kata)</option>
+                <option value=",">Koma (,)</option>
+                <option value=";">Titik Koma (;)</option>
+                <option value="-">Tanda Strip (-)</option>
+                <option value="/">Garis Miring (/)</option>
+            </select>
+        </div>
+
+        <div class="btn-grid-2">
+            <button id="btn-split-text" class="btn btn-secondary">
+                🔀 Pecah Kolom
+            </button>
+            <button id="btn-merge-text" class="btn btn-secondary">
+                🔗 Gabung Kolom
+            </button>
+        </div>
+        <p class="help-text">Pecah 1 kolom menjadi banyak kolom, atau gabungkan 2+ kolom yang diblok.</p>
+    </section>
+
+    <!-- 5. 1-Click Auto Chart Generator -->
+    <section class="feature-card">
+        <div class="card-header">
+            <h2>📈 1-Click Auto Chart</h2>
+            <span class="badge purple">Charts</span>
+        </div>
+        <div class="btn-grid-3">
+            <button id="btn-chart-column" class="btn btn-secondary">
+                📊 Batang
+            </button>
+            <button id="btn-chart-line" class="btn btn-secondary">
+                📈 Garis Tren
+            </button>
+            <button id="btn-chart-pie" class="btn btn-secondary">
+                🥧 Lingkaran
+            </button>
+        </div>
+        <p class="help-text">Blok tabel/angka beserta headernya, lalu klik salah satu diagram untuk membuat visualisasi otomatis.</p>
+    </section>
+
+    <!-- 6. Data Quality Auditor -->
+    <section class="feature-card">
+        <div class="card-header">
+            <h2>🛡️ Data Quality Auditor</h2>
+            <span class="badge">Audit</span>
+        </div>
+        <div class="btn-grid-2">
+            <button id="btn-highlight-blanks" class="btn btn-secondary">
+                🔍 Sorot Sel Kosong
+            </button>
+            <button id="btn-convert-text-numbers" class="btn btn-secondary">
+                🔢 Teks ➔ Angka
+            </button>
+        </div>
+        <button id="btn-clear-format" class="btn btn-secondary" style="margin-top: 4px; border-style: dashed;">
+            🧹 Bersihkan Warna Highlight
+        </button>
+        <p class="help-text">Deteksi sel bolong atau angka berformat teks agar rumus SUM/VLOOKUP tidak error.</p>
+    </section>
+
+    <!-- 7. Template Generator -->
     <section class="feature-card">
         <div class="card-header">
             <h2>📊 Template Generator</h2>
@@ -395,11 +617,11 @@
         <p class="help-text">Membuat tabel rapi dengan header hijau Fluent, autofit, dan validasi data.</p>
     </section>
 
-    <!-- 4. Mass Action -->
+    <!-- 8. Mass Action: Split Sheets -->
     <section class="feature-card">
         <div class="card-header">
             <h2>📑 Mass Action: Split Sheets</h2>
-            <span class="badge">Mass Action</span>
+            <span class="badge purple">Mass Action</span>
         </div>
         <button id="btn-split-sheets" class="btn btn-purple">
             📂 Split Data ke Banyak Sheet
